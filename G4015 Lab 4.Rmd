@@ -1,0 +1,92 @@
+---
+title: "G4015 Lab 4"
+author: "Jonathan Kuek"
+date: "10 November 2015"
+output: html_document
+---
+
+I am using the World Value Survey Data for this analysis. I will only be looking at the USA data. I will be examining if gender and education affects the number of children that one has in the USA. Following which I will transform it into an interaction term.
+
+1. Run a simple regression, and interpret your results. (Did the results fit your expectations? Why? Why not?)  
+
+I will be running a simple multiple regression with gender and education regressed against number of children. I expect that as one's education increase, the less the number of children one will have, net of gender. I also expect females to have more children, relative to male, because there is a higher chance of becoming a single mother out of marriage than a single father.
+
+```{r}
+w <- read.csv("~/Desktop/Columbia Fall Courses/G4015 Data Analysis/Lab/Lab 4/WVS.csv-2.xls")
+library(plyr)
+library(visreg)
+
+w = rename(w, c("V248"="Education")) # As the category increases, the education level increases
+w = rename(w, c("V240"="Gender")) # Males is the base case
+w = rename(w, c("V2"="Country"))
+w = rename(w, c("V58"="Children")) # As number increases, the more children you have
+w = rename(w, c("V10"="Happy")) # As the category increases, the less happy you become
+
+w2 <-subset(w, Country == 840) # just considering cases in USA
+
+table(w2$Education)
+
+lm1 = lm(Children ~ Education + as.factor(Gender), data=w2)
+summary(lm1)
+
+```
+
+All the variables are statistically significant at the 99% confidence level or greater.  
+
+Refering to males whose category of education is zero, the number of children they will have on average is 3.102, net of other variables.  
+
+As education increases by one category the number of children on average decreases by 0.185, holding gender constant.  
+
+For females, relative to males, there is a higher intercept coefficient of 3.102 + 0.181 = 3.283 number of children on average, net of education.  
+
+Yes the above findings support my intial expectations. My guess would be that as education increase, one would be more inclined to prioritise work over family and as a result the number of children would also decrease due to lesser focus. My guess as to why woman has higher number of children is that women are the ones who give birth to children and in the case of children out of wedlock it is usually the women that ends up taking care of the child and not the male, hence females having a higher intercept coefficient is justified.
+
+2. Add an interaction term to that model that you think might moderate the original relationship between X1 and X2. Explain why you think an interaction might be present and in what direction it would work. Explain your results. Did it work out? Yes? No?  
+
+Here I have added an interaction term between gender and education, I would expect the slopes of education would differ between the two genders because women have a lesser number of natural childbearing years compared to men, if increase in education also corresponds to an increase in age and thus decrease in ferility for women, combined with the explaination that more educated respondents might be more ambitious and prioritise work over family, I would expect the slope of women to be more negative than the slope of men for number of children as the education category increases and so an interaction term is needed.
+
+```{r}
+
+lm2 = lm(Children ~ Education + as.factor(Gender) + Education*as.factor(Gender), data=w2)
+summary(lm2)
+```
+All the variables are statistically significant at the 95% confidence level or greater. The newly added interaction term is statistically significant at the 95% confidence level. The values of the coefficients have all changed with the addition of the interaction term.
+
+Refering to males whose category of education is zero, the number of children they will have on average is 2.667, net of other variables.  
+
+For females, relative to males, there is a higher intercept coefficient of 2.667 + 1.098 = 3.765 number of children on average, net of other variables.  
+
+As education increases by one category the number of children on average decreases by 0.129 for males. On the other hand, as education increases by one category, the number of children on average decreases by 0.129 + 0.118 = 0.247 for females. This implies that while female start off by having a higher number of children on average when education is zero, relative to men, the number of children also decreases at a faster rate than men as education increases.
+
+This relationship can be seen in the plot below.
+
+
+```{r}
+visreg(lm(Children ~ Education + as.factor(Gender) + Education*as.factor(Gender), data=w2),
+       xvar = "Education", by = "Gender", overlay=T, partial = F, band = F, legend = F, 
+       line = list(col = c("cyan3", "purple3"))) 
+legend("bottomleft", c("Male", "Female"), lwd = 2, col = c("cyan3", "purple3"), cex = 0.8)
+```
+
+Looking at the plot, I would say that this result is in line with my intial expectations above, where the slope of the female decrease faster than the slope of male for every increase in education category.
+
+```{r}
+anova(lm1, lm2)
+```
+
+Looking at the p value of 0.0229 in the ANOVA table, we can reject the null hypothesis that lm1 and lm2 are the same at the 95% confidence level and we can choose lm2 over lm1 in this case. The value of 0.0229 is the same as the p value of the interaction term added into lm2 from the lm1 model.
+
+```{r}
+lm3 = lm(Children ~ Education + as.factor(Gender) + Education*as.factor(Gender) + Happy, data=w2)
+summary(lm3)
+```
+Just out of curiousity I added in Happy to control for the level of happiness. While all the variables are still statistically significant, the greatest change occurs with the intercept variable, all the other variable coefficients are still quite similar. Therefore while its ok as well to use the lm3 model, I would still opt for the lm2 model if I am just looking at the effects of education and gender on number of children.
+
+3. Give me an update on your independent project. What do you plan to investigate? What are your hypotheses? What date are you using? How can we help?  
+
+For my G4015 Data Analysis independent project, I will be investigating the usage of ARIMA models on Singapore stock market data. This can be thought of as the preliminary data analysis leading on to my QMSS thesis next semester.
+
+The data I will be using is the Singapore Stock Index (Straits Times Index) adjusted closing prices over the last 5 years (October 2015 to October 2015) on a daily basis. The dependent variable is the closing stock price and the independent variable is time and closing stock price itself lagged. I have already obtained the data. My hypothesis is that over short periods there such 3 months interval there will be the presence of a strong time-series trend that can be helpful in predicting prices. I am thinking of splitting my dataset into 5 X 4 = 20 pieces of 3 month daily data and running ARIMA models on them to see if the hypothesis holds.
+
+I am now reading through the ARIMA models on my own and I would need some help in choosing the proper parameters of the ARIMA model and also in determining if I am taking my project in the right direction and where can I improve upon this idea.
+

@@ -1,0 +1,99 @@
+---
+title: "G4015 Lab 3"
+author: "Jonathan Kuek (jjk2214)"
+date: "26 October 2015"
+output: html_document
+---
+
+R Lab #3  
+(due on Oct. 27)  
+Answer these questions as best you can:  
+```{r}
+gss <- read.csv("~/Desktop/Columbia Fall Courses/G4015 Data Analysis/Lab/Week 2/GSS.2006.csv.xls", header = TRUE)
+d <- read.csv("~/Desktop/Columbia Fall Courses/G4015 Data Analysis/Lab/Lab 3/WVS.csv-2.xls", header = TRUE)
+library(stargazer)
+library(plyr)
+library(ggplot2)
+```
+
+
+1. Run a simple bivariate regression, and interpret your results. (Did the results fit your expectations? Why? Why not?)  
+2. Add an additional variable that might mediate or partly "explain" the initial association from that simple regression above and explain your results. Did it work out? Yes? No?  
+
+For question 1 and 2, I will be looking at GSS 2006 data. I will be examining realrinc (Respondent's income on 1972-1991 surveys in constant dollars, base=1986), hrsrelax (After an average work day, about how many hours do you have to relax or pursue activities that you enjoy?) and marital (respondents' marital status).
+
+For question 1, I ran a regression using hrsrelax as the dependent variable and log(realrinc) as the independent variable. I expect that as your earning power increases, your responsibilities increases and thus your number of relaxation hours decreases.
+
+For question 2, I added the variable marital after recoding it into a binary variable. I hypothesize that it can help explain the initial association if we think that people only marry once they are financially stable and once they are married they would have less time for relaxation.
+```{r}
+gss$ln.realrinc = log(gss$realrinc)
+
+plot(gss$ln.realrinc, gss$hrsrelax)
+
+lm1 = lm(hrsrelax ~ ln.realrinc , data=gss) 
+summary(lm1)
+```
+From the plot, we can see that there is greater range of values when log(realrinc) is lower and the range of values for hrsrelax gets more compact as log(realrinc) increases.
+
+From the summary, for a one percent increase in realrinc, we would expect a (-0.22/100) = -0.0022 unit decrease in hrsrelax. The results is statistically significant at 1% significance. So we can see the results support my initial hypothesis.
+
+```{r}
+gss$m = ifelse(gss$marital==1,1,0)
+
+plot(as.factor(gss$m), gss$hrsrelax)
+
+lm2 = lm(hrsrelax ~ ln.realrinc + m , data=gss) 
+summary(lm2)
+
+stargazer(lm1, lm2, type = "text")
+```
+
+We can see from the plot that being married results in a lower median for hrsrelax compared to not being married. There is also a smaller and lower interquartile range if you are married compared to not being married for hrsrelax.  
+
+The additional variable of martial status does help. From the summary, for a one percent increase in realrinc, there is a (-0.188/100) = -0.00188 unit decrease in hrsrelax. Also, if you are married, there is a -0.5 unit decrease in hrsrelax. Both log(realrinc) and marital are significant at a 1% level.
+
+A possible issue might be engogeniety issue between log(realrinc) and marital. While it can be argued that high income leads to marriage, it can also be argued that people will earn higher incomes after they are married. More research is required on this point.
+
+3. Run another multiple regression. Tell me how you expect your dependent variable to be affected by the independent variables. Interpret your results.  
+
+4. Now add another independent variable to that model in Question 3, preferably a set of dummy variables. Tell me why you added that new set of variables and what effect you expected them to have. Did they have an effect? Interpret that new model.  
+
+For questions 3, 4 and 5, I will be using data from the World Values Survey from 2010 to 2014, with a specific focus on Singapore (V2 = 702). I am looking at V75 (Being very successful is important to this person; to have people recognize one’s achievements), V242 (age), V248 (Highest education level attained), V57 (Marital Status), V240 (Sex).
+
+For question 3 I am running a multiple regression with importance of success as the dependent variable, age, highest education level and marital status as independent variables and for question 4 I am adding sex as an extra independent variable.
+
+For question 3, I would expect that age would have a negative relationship with importance of success because as you grow older you would be more successful in your career/personal life and success becomes less important to you. I would also expect that as your education level increase, you would place higher emphasis on the importance of success. Lastly, once you are married I would expect that success is no longer as important because marrige can be seen as an important milestone in one's life and also a form of success.
+
+For question 4, I added sex because Singapore is still a country where traditional Chinese thinking is still very much present. Women are brought up to think that its ok to let the husband be more successful in his career so I would expect females in general to have a lower importance on success.
+
+```{r}
+
+
+d <- rename(d, c("V75" = "success"))
+d$rsuccess <- 7-d$success
+d$rsuccess_lab <- ordered(d$rsuccess, levels = c(1,2,3,4,5,6), labels = c("Not at all like me", "2", "3", "4", "5", "Very much like me"))
+
+d = rename(d, c("V242"="age"))
+d = rename(d, c("V248"="education"))
+d$married=ifelse(d$V57==1, 1,0)
+d$female = ifelse(d$V240==2, 1, 0)
+
+lm1 = lm(as.numeric(rsuccess_lab) ~ age + education + married, d, subset=V2==702)
+summary(lm1)
+```
+We can see based on the results that age and education are significant at the 5% level. For a one unit increase in age, importance of success decreases by 0.0053 units, holding all else constant. For a one unit increase in educational attainment, there is a 0.029 unit increase in importance of success. Marriage is not significant here.
+
+```{r}
+lm2 = lm(as.numeric(rsuccess_lab) ~ age + education + married + female, d, subset=V2==702)
+summary(lm2)
+
+```
+We can see that gender here is statistically significant at 1% level. If you are a female, you would be 0.149 unit lower on the importance of success, which is in line with my intial expectations. There are small changes to the coefficients of age and education and education is only significant at around 7% level now.
+
+5. Now run a partial F test comparing the model in Question 3 to the model in Question 4. Does the F test support the idea of adding those new variables? Why? Why not?  
+
+```{r}
+stargazer(lm1, lm2, type = "text")
+anova(lm1, lm2)
+```
+Based on the ANOVA table, there is a less than 1% chance that the effect of gender is equals to zero. Therefore based on the partial F test, we should keep the new variable gender. 

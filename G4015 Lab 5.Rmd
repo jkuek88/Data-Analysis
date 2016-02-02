@@ -1,0 +1,81 @@
+---
+title: "G4015 Lab 5"
+author: "Jonathan Kuek"
+date: "30 November 2015"
+output: html_document
+---
+
+1. Run a multiple linear probability model. Tell me how you think your independent variables will affect your dependent variable. Interpret your results. Were your expectations correct? Why or why not?  
+
+I will be using the GSS dataset for this analysis. I want to look at job satisfaction and what are some of the variables that affect one's job satisfaction. Although it might be a bit extreme, I would like to code only "completely satisfied" as 1 and everyone else as 0. 
+
+The factors that I have chosen are number of hours worked, age, gender and respondent job prestige. I would expect the higher the number of hours worked the lower the probability of job satisfaction. The higher one's age, the higher the probability of job satisfaction. Gender wise I would expect males to have a higher probability of job satisfaction relative to females and lastly the higher the respondent's job prestige, the higher the probability of job satisfaction.
+```{r}
+library(devtools)
+library(QMSS)
+
+d <- read.csv("~/Desktop/Columbia Fall Courses/G4015 Data Analysis/Lab/Lab 5/GSS.2006.csv.xls")
+sub <- d[, c("jobsat", "hrs1", "age", "realrinc", "educ", "wrkstat", "prestg80", "sex")]
+sub <- na.omit(sub)
+
+sub$sat = ifelse(sub$jobsat==1, 1, 0) ## only look at "completely satisfied" vs. everything else
+table(sub$sat)
+
+lm1 = lm(sat ~ hrs1 + age + as.factor(sex) + prestg80, sub, subset= wrkstat==1) # we only want people who have jobs here
+summary(lm1)
+
+```
+Looking at the results of the linear probability model, we can infer the following:  
+Every one hour increase makes a person 1.342 * e-03 percentage points on average less likely to be completely satisfied at work, net of other variables. This is in line with my initial expectations.  
+Every one year increase in age makes a person 0.256 percentage points on average more likely to be completely satisfied at work, net of other variables. This is also in line with my initial expectations.  
+Every categorical increase in job prestige makes a person 0.136 percentage points on average less likely to be completely satisfied at work, net of other variables. This is not in line with my initial expectations since the sign is reversed.
+Relative to males, females are 2.622 percentage points on average less likely to be completely satisfied at work, net of other variables. This is in line with my initial expectations.
+All the variables other than age are not satistically significant.
+
+2. Run a multiple (binary) logistic model.  (It can be the same as the above LPM or -- even better -- a new model.)  Tell me how you think your independent variables will affect your dependent variable.  Interpret your results in the logit scale.  Were your expectations correct?  Why or why not?    
+
+Since the model above had only one statistically significant independent variable, for this question I have replaced some variables and I am now looking at hours worked, age, respondent real income and respondent education to see if I can get a better model.  
+
+From the above model, I know that the higher the number of hours worked, the lower the probability of complete job satisfaction and also the higher the age, the higher the probability of complete job satisfaction. Both of this are quite intuitive because if the number of hours increase past the average of 40 - 45 hours per week, we might get exhausted at work and not like the job as much as if we went home on time. Also, with the increase in age, it is also possible to hypothesize that we might get more proficient in our jobs and thus have a higher chance of being completely satisfied at work.  
+
+I believe that the higher the respondent's real income, the higher the probability of complete job satisfaction and the higher the rsepondent's education, the higher the probability of complete job satisfaction as well. Both real income and education are measures of what kind of job we will end up with and the higher both are, the more possible we will be completely satisfied with work.
+```{r}
+logit1 = glm(sat ~ hrs1 + age + realrinc + educ, sub, subset= wrkstat==1, family=binomial)
+summary(logit1)
+```
+For every one additional hour worked, we would decrease the logit of complete job satisfaction by 1.3 * e-03 on average, controlling for other variables. This result is similar to my expectations.  
+For every one year increase in age, we would increase the logit of complete job satisfaction by 1.557 * e-02 on average, controlling for other variables. This result is also identical to my expectations.  
+For every one category increase in real income, we would increase the logit of complete job satisfaction by 4.766 * e-06 on average, controlling for other variables. This is in line with my expectations above.  
+Lastly, for every category increase in education level, we would decrease the logit of complete job satisfaction by 0.1085 on average, controlling for other variables. This is the only variable that is statistically significant and it is the only one not in line with my initial expecations. A possible explaination might be that the higher one's education, the less likely you are to answer on the extremes in a survey.  
+
+3. Get odds ratios from your logit model in Question 2 and interpret some of them.  
+```{r}
+exp(coef(logit1))
+```
+For every additional hour worked, my odds that you will be completely satisfied at work goes down by a factor of 0.9987007, net of other factors.  
+For every additional year of age, my odds that you will be completely satisfied at work goes up by a factor of 1.0156929, net of other factors.  
+For every increase in category of real income, my odds that you will be completely satisfied at work goes up by a factor of 1.0000048, net of other factors.  
+For every category increase in education, my odds that you will be completely satisfied at work goes down by a factor of 0.8971917, net of other factors.  
+
+4. Get predicted probabilities from your logit model in Question 2 for some constellations of X values and interpret the results.  
+```{r}
+predict(logit1, type = "response", newdata = data.frame(hrs1 = c(40, 80), age = c(35, 35), realrinc = c(25000, 25000), educ = c(16, 16)))
+```
+I am changing the number of hours worked here while keeping the other variables constant. The first person here has a 12.8% chance of being completely satisfied at work versus the second person having a 12.2% chance of being completely satisfied at work.  
+```{r}
+predict(logit1,  type = "response", newdata = data.frame( hrs1 = c(40, 40), age = c(35, 55), realrinc = c(25000, 25000), educ = c(16, 16)))
+```
+I am changing the age here while keeping the other variables constant. The first person here has a 12.8% chance of being completely satisfied at work versus the second person having a 16.7% chance of being completely satisfied at work.  
+```{r}
+predict(logit1,  type = "response", newdata = data.frame( hrs1 = c(40, 40), age = c(20, 50), realrinc = c(25000, 25000), educ = c(16, 6)))
+```
+I am changing the age and education level here while keeping the other variables constant. The first person here has a 10.4% chance of being completely satisfied at work versus the second person having a 35.4% chance of being completely satisfied at work.  
+```{r}
+pred.dat <- with(sub, expand.grid( 
+  hrs1 = mean(hrs1),
+  age = mean(age),
+  realrinc = mean(realrinc),
+  educ = sort(unique(educ))))
+predProb(logit1, predData = pred.dat, ci = F)
+```
+The above is a table of predictions of complete job satisfaction probabilities with education level changed and all the other three independent variables held constant.

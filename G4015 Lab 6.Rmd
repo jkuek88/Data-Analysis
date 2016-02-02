@@ -1,0 +1,87 @@
+---
+title: "G4015 Lab 6"
+author: "Jonathan Kuek"
+date: "1 December 2015"
+output: html_document
+---
+
+```{r}
+library(plm)
+library(devtools)
+library(QMSS)
+```
+For this analysis I will be using the panel data from the GSS study from 2006 to 2010, over the course of 3 waves.  
+
+My main dependent variable of interest here is "eqwlth", which is a question asking respondents whether they think the US government should intervene and reduce the income disparity between the rich and the poor. It has been recoded such that the higher the number, the more the respondent feels that the government should intervene.  
+
+My independent variables are "wrkstat" measuring the current employment status, "realrinc" measuring the real income of the respondent and "race" measure the respondent's race.
+```{r}
+d <- read.csv("~/Desktop/Columbia Fall Courses/G4015 Data Analysis/Lab/Lab 6/panel-for-R.csv")
+vars <- c("idnum","panelwave","wrkstat","realrinc", "race", "eqwlth") # idnum and panelwave are necesary for GSS time series 
+pd.sub <- d[, vars]
+
+pd.sub$black <- ifelse(pd.sub$race == 2, 1, 0) # Recoding so that whites are the reference race
+pd.sub$r_eqwlth <- 8 - pd.sub$eqwlth
+pd.sub$year <- ifelse(pd.sub$panelwave == 3, 1, 0)
+```
+
+1. Run a naive ("pooled") OLS regression on the panel data. Tell we how you expect your Xs to affect your Y and why. Apply clustered standard errors too. Interpret your results.  
+
+I would expect that if as you increase one unit on the wrkstat scale (which brings you further away to full time employment), you would have a higher score on eqwlth, which means you believe that the government should intervene to reduce income disparity. Relative to Whites, I would expect Blacks to have a higher score on eqwlth because Blacks were discriminated against in the past and there has been research to show that they are pushed into lower waged jobs by prospective employers. Lastly, I would expect that the higher one's real income is, the lower the score on eqwlth because you are successful financially and would think that hard work is able to solve the income disparity and the government need not intervene.
+
+```{r}
+lm1 <- lm(r_eqwlth ~ black + wrkstat + realrinc + as.factor(panelwave),  data = pd.sub)
+summary(lm1)
+```
+Looking at the results:  
+Relative to Whites, Black are 0.80844 points higher on eqwlth on average, net of other varaibles, which is in line with my intial expectations above. This is significant at the 0.1% level.  
+For every one category increase in wrkstat, respondents view on eqwlth will increase by 0.07471 on average, net of other variables. This is statistically significant at 1% level and is in line with my initial expectations above.  
+For every one category increase in realrinc,  respondents view on eqwlth decreases by 4.023 * e-06 on average, net of other variables. This is statistically significant at 0.1% level and is also in line with my initial expectations above.  
+Time has been included here via the two panelwave dummy variables. Relative to the first period, the respondent score on the second period for the eqwlth increased by 9.467 * e-02 on average, net of other variables. This result is not statistically significant. On the other hand, relative to the first period, the respondent score on the third period for the eqwlth decreased by 0.3949 on average, net of other variables. This result is statistically significant at the 0.1% level.  
+```{r}
+clusterSE(fit = lm1, cluster.var = "idnum", data = pd.sub)
+```
+
+When we apply clustered standard errors, we do not get different coefficients, rather we will get a larger standard error which will lead to smaller t-values and so it is harder for us to prove statistical significance. However in this case, the significance does not change for any of the variables.
+
+2. Run a first differences regression on the same model in Question 1. Interpret your results. Do you draw a different conclusion than in Question 1? Explain.  
+```{r}
+plm1 <- plm(r_eqwlth ~ black + wrkstat + realrinc + year,  index = c("idnum", "panelwave"),  model = "fd", data = pd.sub)
+summary(plm1)
+```
+We have included the year variable here to capture any change in trend over the 6 years of the panel data. Looking at the output, there is a 0.40071 decrease in opinion on eqwlth on average when going from wave 2 to wave 3 than from wave 1 to wave 2, net of other variables. This decrease is statistically significant at the 1% level.  
+
+Looking at the other independent variables:  
+For every 1 unit positive change in real respondent income, there is a 4.7917 * e-07 point positive change on average in their feeling that the government should intervene in reducing income disparity between the rich and the poor, net of other variables. This is contrary to the results above.  
+For every 1 unit positive change in respondent's work status, there is a 6.2188 * e-03 points negative change on average in their feeling that the government should intervene in reducing income disparity between the rich and the poor, net of other variables. This is also contrary to the results above.  
+Lastly, for respondents changing races from white to black, there is 0.68206 points positive change on average in their feeling that the government should intervene in reducing income disparity between the rich and the poor, net of other variables. This is in line with the results above and it makes sense.  
+
+```{r}
+clusterSE(fit = plm1, cluster.var = "idnum", data=pd.sub)
+```
+Similarly here, the clustered standard errors do not affect the values of our coefficients. It only decreases the t-values which makes it harder for us to prove statistical significance. Arguebly it is not as big an issue here because nothing other than year was statistically significant.
+
+```{r}
+#Extra Analysis
+pd.sub$d_wrkstat <- firstD(wrkstat, idnum, pd.sub )
+```
+This lets us look at respondents who have changed their work status over the waves.
+```{r}
+table(pd.sub$d_wrkstat)
+```
+This table lets us examine respondents who have changed their opinions on the eqwlth question. For both these two variables we can see that there is quite a fair number of respondents that change which is good for the purpose of the FD analysis above.
+```{r}
+pd.sub$d_r_eqwlth=firstD(r_eqwlth, idnum, pd.sub)
+table(pd.sub$d_r_eqwlth)
+
+pd.sub$nf <- ifelse(pd.sub$d_wrkstat == 1, 1, 0)
+pd.sub$fn <- ifelse(pd.sub$d_wrkstat == -1, 1, 0)
+
+#Here we are looking at changes in eqwlth where there is a change from full time jobs to non full time jobs and vice versa for both blacks and whites.
+summary(lm(d_r_eqwlth ~ nf, pd.sub, subset=black == 0))
+summary(lm(d_r_eqwlth ~ fn, pd.sub, subset=black == 0))
+
+summary(lm(d_r_eqwlth ~ nf, pd.sub, subset=black == 1))
+summary(lm(d_r_eqwlth ~ fn, pd.sub, subset=black == 1))
+```
+From the above it seems that only African American individuals who transited from a full time job to a non full time job leads to a increase of eqwlth opinion in believing that the US government should reduce the income difference.
